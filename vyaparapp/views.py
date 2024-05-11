@@ -16078,14 +16078,6 @@ def chequeEmail(request):
 
 
 
-# def Low_stock_report(request):
-#   sid = request.session.get('staff_id')
-#   staff =  staff_details.objects.get(id=sid)
-#   cid= staff.company.id
-#   all_items = ItemModel.objects.filter(company=cid)
-#   return render(request,'company/Low_stock_report.html',{'staff':staff,'all_items':all_items})
-
-
 
 def Low_stock_report(request):
   sid = request.session.get('staff_id')
@@ -16096,3 +16088,44 @@ def Low_stock_report(request):
   
   context = {'staff':staff,'allmodules':allmodules,'all_items':all_items}
   return render(request,'company/Low_stock_report.html',context)
+
+
+from django.core.mail import EmailMessage
+from django.template.loader import get_template
+from django.shortcuts import redirect
+from django.contrib import messages
+from io import BytesIO
+from xhtml2pdf import pisa
+from .models import staff_details, ItemModel, company
+from django.conf import settings
+
+def email_lowstock(request):
+    if request.method == 'POST':
+        emails_string = request.POST.get('email')
+        emails_list = [email.strip() for email in emails_string.split(',')]
+        email_message = request.POST.get('message')
+        
+        sid = request.session.get('staff_id')
+        staff = staff_details.objects.get(id=sid)
+        cid = staff.company.id
+        all_items = ItemModel.objects.filter(company=staff.company)
+        context = {'staff': staff, 'all_items': all_items}
+        
+        cmp = company.objects.get(id=cid)
+        template_path = 'company/Lowstock_summary_pdf.html'
+        template = get_template(template_path)
+        
+        html = template.render(context)
+        result = BytesIO()
+        pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+        pdf = result.getvalue()
+        filename = f'Low Stock Summary - {cmp.company_name}.pdf'
+        subject = f"Low Stock Summary - {cmp.company_name}"
+        email = EmailMessage(subject, f"Hi,\nPlease find the attached Low Stock Summary .\n{email_message}\n\n--\nRegards,\n{cmp.company_name}\n{cmp.address}\n{cmp.state} - {cmp.country}\n{cmp.contact}", from_email=settings.EMAIL_HOST_USER, to=emails_list)
+        email.attach(filename, pdf, "application/pdf")
+        email.send(fail_silently=False)
+        
+        # messages.success(request, 'Report has been shared via email successfully..!')
+        return redirect('Low_stock_report')  
+    else:
+        return redirect('Low_stock_report') 

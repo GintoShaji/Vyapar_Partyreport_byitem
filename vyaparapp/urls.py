@@ -542,6 +542,7 @@ urlpatterns = [
     
     
     path('Low_stock_report', views.Low_stock_report, name='Low_stock_report'),
+    path('email_lowstock', views.email_lowstock, name='email_lowstock'),
     
     
     re_path(r'^static/(?P<path>.*)$', serve,{'document_root': settings.STATIC_ROOT}),
