@@ -16077,7 +16077,7 @@ def chequeEmail(request):
 #End
 
 
-
+#---------------- Low Stock summary Report - Ginto Shaji - Start-------------------->
 
 def Low_stock_report(request):
   sid = request.session.get('staff_id')
@@ -16129,3 +16129,224 @@ def email_lowstock(request):
         return redirect('Low_stock_report')  
     else:
         return redirect('Low_stock_report') 
+      
+
+#---------------- Low Stock summary Report - Ginto Shaji - end-------------------->    
+
+#---------------- Party Report By Item - Ginto Shaji - Start-------------------->
+
+  
+from django.db.models import Sum
+
+def Party_Report_By_Item(request):
+  sid = request.session.get('staff_id')
+  staff =  staff_details.objects.get(id=sid) 
+  cmp = company.objects.get(id=staff.company.id)
+  allmodules= modules_list.objects.get(company=cmp,status='New')
+    
+  all_items = ItemModel.objects.filter(company=cmp)
+  sale_orders = salesorder.objects.filter(comp=cmp)
+  purchase_orders = PurchaseOrder.objects.filter(company=cmp)
+  parties = party.objects.filter(company=cmp)
+  item=ItemModel.objects.filter(company=cmp)
+  sale_items = sales_item.objects.filter(sale_order__in=sale_orders,product__in=item)
+  purchase_items = PurchaseOrderItem.objects.filter(purchaseorder__in=purchase_orders,product__in=item)
+ 
+  context = {
+    'staff': staff,
+    'cmp':cmp,
+    'all_items': all_items,
+    'item':item,
+    'allmodules': allmodules,
+    'sale_orders': sale_orders,
+    'purchase_orders': purchase_orders,
+    'sale_items': sale_items,
+    'purchase_items': purchase_items,
+    'parties': parties
+   }
+
+  return render(request, 'company/Party_Report_By_Item.html', context)
+
+
+
+from django.core.mail import EmailMessage
+from django.template.loader import get_template
+from django.shortcuts import redirect
+from django.contrib import messages
+from io import BytesIO
+from xhtml2pdf import pisa
+from .models import staff_details, ItemModel, company
+from django.conf import settings
+
+def email_Party_Report_Item(request):
+    if request.method == 'POST':
+        # Get email addresses and message from POST data
+        emails_string = request.POST.get('email')
+        emails_list = [email.strip() for email in emails_string.split(',')]
+        email_message = request.POST.get('message')
+        
+         
+        start_date = request.POST.get('start_date') or None
+        end_date = request.POST.get('end_date') or None
+        moneyIn = request.POST.get('moneyIn2')
+        moneyOut = request.POST.get('moneyOut2')
+        selqty = request.POST.get('selqty2')
+        purqty = request.POST.get('purqty2')
+        typeValue = request.POST.get('typet')
+        
+        
+        # Retrieve staff details and company details based on session data
+        sid = request.session.get('staff_id')
+        try:
+            staff = staff_details.objects.get(id=sid)
+            cmp = staff.company  # Assign the company to 'cmp'
+        except staff_details.DoesNotExist:
+            messages.error(request, 'Staff details not found.')
+            return redirect('Party_Report_By_Item')
+        except company.DoesNotExist:
+            messages.error(request, 'Company details not found.')
+            return redirect('Party_Report_By_Item')       
+        
+        # Retrieve all items related to the company
+        all_items = ItemModel.objects.filter(company=cmp)
+        
+        sale_orders = salesorder.objects.filter(comp=cmp)
+        purchase_orders = PurchaseOrder.objects.filter(company=cmp)
+        parties = party.objects.filter(company=cmp)
+        item=ItemModel.objects.filter(company=cmp)
+        sale_items = sales_item.objects.filter(sale_order__in=sale_orders,product__in=item)
+        purchase_items = PurchaseOrderItem.objects.filter(purchaseorder__in=purchase_orders,product__in=item)
+ 
+        context = {
+            'staff': staff,
+            'cmp':cmp,
+            'all_items': all_items,
+            'item':item,
+            # 'allmodules': allmodules,
+            'sale_orders': sale_orders,
+            'purchase_orders': purchase_orders,
+            'sale_items': sale_items,
+            'purchase_items': purchase_items,
+            'parties': parties,
+            'start_date':start_date,
+            'end_date':end_date,
+            'moneyIn':moneyIn,
+            'moneyOut':moneyOut,
+            'selqty':selqty,
+            'purqty':purqty
+            
+          }
+                 
+        template_path = 'company/Party_Report_Item_pdf.html'
+        template = get_template(template_path)
+        html = template.render(context)
+        
+        result = BytesIO()
+        pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+        if not pdf.err:
+            pdf_data = result.getvalue()
+            
+            # Construct and send email with PDF attachment
+            filename = f'Party Report By Item - {cmp.company_name}.pdf'
+            subject = f"Party Report By Item - {cmp.company_name}"
+            email_content = (
+                f"Hi,\nPlease find the attached Party Report By Item .\n"
+                f"{email_message}\n\n--\nRegards,\n{cmp.company_name}\n{cmp.address}\n{cmp.state} - {cmp.country}\n{cmp.contact}"
+            )
+            email = EmailMessage(
+                subject,
+                email_content,
+                from_email=settings.EMAIL_HOST_USER,
+                to=emails_list
+            )
+            email.attach(filename, pdf_data, "application/pdf")
+            try:
+                email.send(fail_silently=False)
+                # messages.success(request, 'Report has been shared via email successfully.')
+            except Exception as e:
+                messages.error(request, f'Failed to send email: {str(e)}')
+        else:
+            messages.error(request, 'Failed to generate PDF.')
+
+        return redirect('Party_Report_By_Item')  
+    else:
+        return redirect('Party_Report_By_Item')
+
+
+
+
+# def party_reportby_item_filter(request):
+#     fromDate = request.GET.get('fromdate')
+#     toDate = request.GET.get('todate')
+#     start_date = datetime.strptime(fromDate, '%Y-%m-%d').date()
+#     end_date = datetime.strptime(toDate, '%Y-%m-%d').date()
+#     sid = request.session.get('staff_id')
+#     staff =  staff_details.objects.get(id=sid) 
+#     cmp = company.objects.get(id=staff.company.id)
+    
+#     pray = []
+   
+#     sale_orders = salesorder.objects.filter(comp=cmp)
+#     purchase_orders = PurchaseOrder.objects.filter(company=cmp)
+#     parties = party.objects.filter(company=cmp)
+#     item=ItemModel.objects.filter(company=cmp)
+    
+    
+#     sale_items = sales_item.objects.filter(sale_order__in=sale_orders,product__in=item,comp=cmp,orderdate__gte = start_date,orderdate__lte = end_date)
+#     for i in sale_items:
+#         pray.append((i.sale_order.party.party_name,i.qty,i.sale_order.grandtotal,'','',i.product.item_name,i.sale_order.orderdate))  
+      
+#     purchase_items = PurchaseOrderItem.objects.filter(purchaseorder__in=purchase_orders,product__in=item,company=cmp,orderdate__gte = start_date,orderdate__lte = end_date)
+#     for i in purchase_items:
+#         pray.append((i.purchaseorder.party.party_name,'','',i.qty,i.purchaseorder.grandtotal,i.product.item_name,i.purchaseorder.orderdate))   
+
+#     context={
+#        'stocklist':pray,
+#        }
+#     return JsonResponse(context)
+
+
+from datetime import datetime
+from django.http import JsonResponse
+from .models import staff_details, company, salesorder, PurchaseOrder, party, ItemModel, sales_item, PurchaseOrderItem
+
+def party_reportby_item_filter(request):
+    fromDate = request.GET.get('fromdate')
+    toDate = request.GET.get('todate')
+    
+    # Error handling for date parsing
+    try:
+        start_date = datetime.strptime(fromDate, '%Y-%m-%d').date()
+        end_date = datetime.strptime(toDate, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'error': 'Invalid date format'})
+    
+    sid = request.session.get('staff_id')
+    staff = staff_details.objects.get(id=sid)
+    cmp = company.objects.get(id=staff.company.id)
+    
+    sale_orders = salesorder.objects.filter(comp=cmp, orderdate__gte=start_date, orderdate__lte=end_date)
+    purchase_orders = PurchaseOrder.objects.filter(company=cmp,orderdate__gte=start_date, orderdate__lte=end_date)
+    parties = party.objects.filter(company=cmp)
+    items = ItemModel.objects.filter(company=cmp)
+    
+    # Combining sale and purchase items into a single queryset
+    items_transactions = []
+    items_transactions.extend(
+        [(sale_item.sale_order.party.party_name, sale_item.qty, sale_item.sale_order.grandtotal, '', '', sale_item.product.item_name, sale_item.sale_order.orderdate)
+         for sale_item in sales_item.objects.filter(sale_order__in=sale_orders, product__in=items, comp=cmp, orderdate__range=(start_date, end_date))]
+    )
+    items_transactions.extend(
+        [(purchase_item.purchaseorder.party.party_name, '', '', purchase_item.qty, purchase_item.purchaseorder.grandtotal, purchase_item.product.item_name, purchase_item.purchaseorder.orderdate)
+         for purchase_item in PurchaseOrderItem.objects.filter(purchaseorder__in=purchase_orders, product__in=items, company=cmp, orderdate__range=(start_date, end_date))]
+    )
+    
+    context = {
+        'stocklist': items_transactions,
+    }
+    return JsonResponse(context)
+
+
+
+
+#---------------- Party Report By Item - Ginto Shaji - end--------------------> 

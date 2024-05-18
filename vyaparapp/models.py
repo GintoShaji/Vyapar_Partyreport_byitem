@@ -519,6 +519,7 @@ class sales_item(models.Model):
     sale_order= models.ForeignKey(salesorder,on_delete=models.CASCADE,null=True)
     cmp = models.ForeignKey(company, on_delete=models.CASCADE,default='')
     # product1 = models.CharField(max_length=100,null=True)
+    party= models.ForeignKey(party,on_delete=models.CASCADE,null=True)
     product= models.ForeignKey(ItemModel,on_delete=models.CASCADE,null=True)
 
     hsn = models.CharField(max_length=100,null=True)

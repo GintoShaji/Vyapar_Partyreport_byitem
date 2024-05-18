@@ -538,12 +538,15 @@ urlpatterns = [
     path('purchasebill_checkgphn', views.purchasebill_checkgphn, name='purchasebill_checkgphn'),
     
     path('get_available_invoices/', views.get_available_invoices, name='get_available_invoices'),
-    
-    
-    
+
     path('Low_stock_report', views.Low_stock_report, name='Low_stock_report'),
     path('email_lowstock', views.email_lowstock, name='email_lowstock'),
     
+    
+    
+    path('Party_Report_By_Item', views.Party_Report_By_Item, name='Party_Report_By_Item'),
+    path('email_Party_Report_Item', views.email_Party_Report_Item, name='email_Party_Report_Item'),
+    path('party_reportby_item_filter', views.party_reportby_item_filter, name='party_reportby_item_filter'),
     
     re_path(r'^static/(?P<path>.*)$', serve,{'document_root': settings.STATIC_ROOT}),
     
